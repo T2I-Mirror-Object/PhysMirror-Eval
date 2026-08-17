@@ -39,6 +39,8 @@ class DINOv2Detector(FeatureDetector):
         
         # Load Backbone
         model_name = self.MODELS[model_type]
+        # Bypass GitHub API fork-validation to avoid 504 timeouts on Kaggle
+        torch.hub._validate_not_a_forked_repo = lambda a, b, c: True
         self.model = torch.hub.load('facebookresearch/dinov2', model_name)
         self.model.to(self.device)
         self.model.eval()
