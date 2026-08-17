@@ -25,12 +25,18 @@ class MirrorSegmentationProcessor:
         """Initializes the LangSAM model."""
         logger.info(f"Loading LangSAM model ({self.config.model_type})...")
         try:
-            # Checkpoint handling is delegated to the library defaults
-            model = LangSAM(
-                sam_type=self.config.model_type,
-                gdino_model_ckpt_path=self.config.gdino_path,
-                gdino_processor_ckpt_path=self.config.gdino_path
-            )
+            if getattr(self.config, 'use_cache', False):
+                logger.info(f"Using local GroundingDINO checkpoint from: {self.config.gdino_path}")
+                model = LangSAM(
+                    sam_type=self.config.model_type,
+                    gdino_model_ckpt_path=self.config.gdino_path,
+                    gdino_processor_ckpt_path=self.config.gdino_path
+                )
+            else:
+                logger.info("Using default Hugging Face model for GroundingDINO...")
+                model = LangSAM(
+                    sam_type=self.config.model_type
+                )
             return model
         except Exception as e:
             logger.error(f"Failed to load model: {e}")

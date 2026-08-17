@@ -42,6 +42,8 @@ def parse_args():
                         help='Number of strongest matches for each object to use for scoring.')
     parser.add_argument('--sim_threshold', type=float, default=0.5, 
                     help='Similarity threshold (pi) for mutual NN matcher.')
+    parser.add_argument("--use_cache", "--use-cache", action="store_true", 
+                        help="If set, uses local GroundingDINO checkpoint instead of downloading from Hugging Face.")
     
     return parser.parse_args()
 
@@ -280,7 +282,7 @@ def main():
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Initializing models on {device}...")
     
-    seg_config = SegmentationConfig(device=device)
+    seg_config = SegmentationConfig(device=device, use_cache=args.use_cache)
     seg_processor = MirrorSegmentationProcessor(seg_config)
     feature_detector = DINOv2Detector(model_type=args.model_size, input_size=448, device=device)
     feature_matcher = MutualNNMatcher(similarity_threshold=args.sim_threshold, use_cuda=(device=='cuda'))

@@ -8,4 +8,5 @@ class SegmentationConfig:
     box_threshold: float = 0.3      # Threshold for object detection
     text_threshold: float = 0.25    # Threshold for text alignment
     device: str = "cuda"            # 'cuda' or 'cpu'
+    use_cache: bool = False         # Whether to use local checkpoint
     gdino_path: str = os.path.join("checkpoints", "grounding-dino")

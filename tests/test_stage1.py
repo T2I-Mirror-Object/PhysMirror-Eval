@@ -16,6 +16,7 @@ def parse_args():
     parser.add_argument("--image_path", type=str, required=True, help="Path to input image.")
     parser.add_argument("--object_name", type=str, required=True, help="Text prompt.")
     parser.add_argument("--output_dir", type=str, default="output_stage1", help="Output directory.")
+    parser.add_argument("--use_cache", "--use-cache", action="store_true", help="Use local GroundingDINO checkpoints.")
     return parser.parse_args()
 
 def main():
@@ -28,7 +29,7 @@ def main():
     # 1. Setup
     # Ensure CUDA is available for the model
     import torch
-    config = SegmentationConfig(device="cuda" if torch.cuda.is_available() else "cpu")
+    config = SegmentationConfig(device="cuda" if torch.cuda.is_available() else "cpu", use_cache=args.use_cache)
     processor = MirrorSegmentationProcessor(config)
     
     os.makedirs(args.output_dir, exist_ok=True)

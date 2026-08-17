@@ -26,6 +26,7 @@ def parse_args():
     parser.add_argument('--model_size', type=str, default='base', choices=['small', 'base', 'large'], help='DINOv2 model size.')
     parser.add_argument('--top_k', type=int, default=50, help='Maximum number of strongest matches to visualize per object.')
     parser.add_argument('--show_centroid', action='store_true', help='Visualize the centroid.')
+    parser.add_argument("--use_cache", "--use-cache", action="store_true", help="Use local GroundingDINO checkpoints.")
 
     return parser.parse_args()
 
@@ -42,7 +43,7 @@ def main():
     
     # --- Initialization ---
     print(f"[Init] Loading models on {device}...")
-    seg_config = SegmentationConfig(device=device)
+    seg_config = SegmentationConfig(device=device, use_cache=args.use_cache)
     seg_processor = MirrorSegmentationProcessor(seg_config)
     
     feature_detector = DINOv2Detector(model_type=args.model_size, input_size=448, device=device)
