@@ -214,13 +214,8 @@ def process_single_image(
         # Calculate one single score using all aggregated lines
         metrics = scorer.calculate_score(all_lines_global)
 
-        # Calculate intersections here so they are always available for the JSON report
-        intersections = VanishingPointAnalyzer.find_pairwise_intersections(
-            all_lines_global, image_shape=image_shape
-        )
-        
-        # Convert NumPy arrays to Python lists for JSON serialization
-        metrics['intersections'] = intersections.tolist() if len(intersections) > 0 else []
+        # Convert NumPy arrays and point pairs to Python lists for JSON serialization
+        metrics['point_pairs'] = [[p1.tolist(), p2.tolist()] for p1, p2 in all_lines_global]
         if 'centroid' in metrics and isinstance(metrics['centroid'], np.ndarray):
             metrics['centroid'] = metrics['centroid'].tolist()
 
@@ -238,8 +233,11 @@ def process_single_image(
                 cv2.circle(vis_image, pt1, 3, (0, 0, 255), -1) 
                 cv2.circle(vis_image, pt2, 3, (0, 0, 255), -1)
 
-            # Draw Intersections (Cyan Cluster) using the already computed list
-            for p in metrics['intersections']:
+            # Draw Intersections (Cyan Cluster)
+            intersections = VanishingPointAnalyzer.find_pairwise_intersections(
+                all_lines_global, image_shape=image_shape
+            )
+            for p in intersections:
                 ix, iy = int(p[0]), int(p[1])
                 cv2.circle(vis_image, (ix, iy), 2, (255, 255, 0), -1)
 
@@ -318,7 +316,7 @@ def main():
             'mean_distance': metrics.get('mean_distance', 0),
             'num_matches': metrics.get('num_matches', 0),
             'centroid': metrics.get('centroid', []),
-            'intersections': metrics.get('intersections', []),
+            'point_pairs': metrics.get('point_pairs', []),
             'error_status': metrics.get('error', 'None')
         })
 
