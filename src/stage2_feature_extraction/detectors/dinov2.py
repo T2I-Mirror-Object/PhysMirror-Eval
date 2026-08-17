@@ -4,6 +4,9 @@ import torch.nn.functional as F
 import torchvision.transforms as T
 import numpy as np
 import cv2
+import os
+import subprocess
+import time
 from PIL import Image
 from typing import Tuple, List, Literal
 
@@ -39,9 +42,7 @@ class DINOv2Detector(FeatureDetector):
         
         # Load Backbone
         model_name = self.MODELS[model_type]
-        # Bypass GitHub API fork-validation to avoid 504 timeouts on Kaggle
-        torch.hub._validate_not_a_forked_repo = lambda a, b, c: True
-        self.model = torch.hub.load('facebookresearch/dinov2', model_name)
+        self.model = self._load_dinov2_model(model_name)
         self.model.to(self.device)
         self.model.eval()
 
@@ -51,6 +52,66 @@ class DINOv2Detector(FeatureDetector):
             T.ToTensor(),
             T.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
         ])
+
+    @staticmethod
+    def _load_dinov2_model(model_name: str, max_retries: int = 3):
+        """
+        Robustly load a DINOv2 model, avoiding GitHub API rate limits (429).
+
+        Strategy:
+          1. Try loading from torch.hub cache (if repo was downloaded before).
+          2. If cache miss, clone the repo via `git clone` (uses git:// protocol,
+             NOT the GitHub REST API) and load with source='local'.
+          3. Fall back to torch.hub.load with retry + exponential backoff.
+        """
+        REPO = 'facebookresearch/dinov2'
+        HUB_DIR = torch.hub.get_dir()
+        # torch.hub caches repos under this naming convention
+        cached_repo_dir = os.path.join(HUB_DIR, 'facebookresearch_dinov2_main')
+
+        # --- Attempt 1: Load from existing torch.hub cache ---
+        if os.path.isdir(cached_repo_dir):
+            print(f"[INFO] Loading DINOv2 from cached repo: {cached_repo_dir}")
+            try:
+                return torch.hub.load(cached_repo_dir, model_name, source='local')
+            except Exception as e:
+                print(f"[WARN] Cache load failed ({e}), will re-clone.")
+
+        # --- Attempt 2: Git clone (bypasses GitHub API entirely) ---
+        clone_dir = os.path.join(HUB_DIR, 'dinov2_local')
+        if not os.path.isdir(clone_dir):
+            print("[INFO] Cloning DINOv2 repo via git (bypasses GitHub API rate limit)...")
+            try:
+                subprocess.run(
+                    ['git', 'clone', '--depth', '1',
+                     f'https://github.com/{REPO}.git', clone_dir],
+                    check=True, capture_output=True, text=True, timeout=120
+                )
+            except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired) as e:
+                print(f"[WARN] Git clone failed ({e}), falling back to torch.hub.load with retry.")
+                clone_dir = None
+
+        if clone_dir and os.path.isdir(clone_dir):
+            print(f"[INFO] Loading DINOv2 from local clone: {clone_dir}")
+            return torch.hub.load(clone_dir, model_name, source='local')
+
+        # --- Attempt 3: Fallback — torch.hub.load with retry + backoff ---
+        torch.hub._validate_not_a_forked_repo = lambda a, b, c: True
+        for attempt in range(1, max_retries + 1):
+            try:
+                print(f"[INFO] torch.hub.load attempt {attempt}/{max_retries}...")
+                return torch.hub.load(REPO, model_name)
+            except Exception as e:
+                if attempt == max_retries:
+                    raise RuntimeError(
+                        f"Failed to load DINOv2 after {max_retries} attempts. "
+                        f"Last error: {e}\n"
+                        f"Tip: On Kaggle, set a GITHUB_TOKEN secret or manually "
+                        f"upload the dinov2 repo as a dataset."
+                    ) from e
+                wait = 2 ** attempt * 10  # 20s, 40s, 80s
+                print(f"[WARN] Attempt {attempt} failed ({e}). Retrying in {wait}s...")
+                time.sleep(wait)
 
     def detect_and_compute(self, image: np.ndarray) -> Tuple[List[cv2.KeyPoint], np.ndarray]:
         """
