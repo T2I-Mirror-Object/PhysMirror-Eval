@@ -60,7 +60,6 @@ omegaconf==2.3.0
 opencv-python==4.13.0.90
 opencv-python-headless==4.13.0.90
 orjson==3.11.7
-packaging @ file:///home/task_176104877067765/conda-bld/packaging_1761049113113/work
 pandas==2.3.3
 pillow==12.1.0
 portalocker==3.2.0
